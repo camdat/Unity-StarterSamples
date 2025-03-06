@@ -38,6 +38,8 @@ public class StartMenu : MonoBehaviour
         var passthroughScenes = new List<Tuple<int, string>>();
         var proControllerScenes = new List<Tuple<int, string>>();
 
+        var yPeak = 0;
+
         int n = UnityEngine.SceneManagement.SceneManager.sceneCountInBuildSettings;
         for (int sceneIndex = 0; sceneIndex < n; ++sceneIndex)
         {
@@ -85,6 +87,14 @@ public class StartMenu : MonoBehaviour
                 DebugUIBuilder.instance.AddButton(Path.GetFileNameWithoutExtension(scene.Item2), () => LoadScene(scene.Item1), -1, DebugUIBuilder.DEBUG_PANE_CENTER);
             }
         }
+
+        DebugUIBuilder.instance.AddSlider("Adjust Peak Luminance", 0f, 10000f, x => {
+            x = yPeak;
+            Renderer renderer = GameObject.Find("QuadArTMO").GetComponent<Renderer>();
+
+            renderer.material.SetFloat("_YDispPeak", x);
+
+        }, true);
 
         DebugUIBuilder.instance.Show();
     }

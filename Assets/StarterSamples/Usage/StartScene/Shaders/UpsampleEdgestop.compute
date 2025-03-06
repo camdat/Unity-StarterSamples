@@ -1,0 +1,48 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel main
+
+GLSLPROGRAM
+#version 130
+
+uniform sampler2DRect tone_image_ds; // Downsampled tone image
+
+uniform sampler2DRect guide_tex; // Guide texture used for edge-stopping
+
+uniform float sigma;  // Spread of the kernel
+
+vec4 range_kernel( vec4 d )
+{
+    const float epsilon = 0.5;
+    return max( vec4(epsilon), 1.-abs(d)/sigma );
+}
+
+void main()
+{
+
+    // 2DRect textures have texels shifted by 0.5
+    vec2 tex_cord_rect = gl_GlobalInvocationID.st; // + vec2(-1,0);
+    vec4 im = vec4( texture2DRect(tone_image_ds, tex_cord_rect - vec2(0,0)).z,
+                    texture2DRect(tone_image_ds, tex_cord_rect - vec2(1,0)).z,
+                    texture2DRect(tone_image_ds, tex_cord_rect - vec2(0,1)).z,
+                    texture2DRect(tone_image_ds, tex_cord_rect - vec2(1,1)).z );
+
+    vec2 st = fract( tex_cord_rect.st );
+
+    // Spatial filter weights
+    vec4 weight_s = vec4( st.s*st.t, (1.-st.s)*st.t, st.s*(1.-st.t), (1.-st.s)*(1.-st.t) );
+
+    // Guidance texture value
+    float guide_v = texture2DRect(guide_tex, gl_FragCoord.xy).z; // Querry the tone value after tone mapping (channel "z")
+
+    // Range filter weights
+    vec4 weight_r = range_kernel( im-guide_v );
+
+    vec4 weight = weight_s*weight_r; // Total weights
+
+    float v = dot( im, weight ) / (weight.x+weight.y+weight.z+weight.w);
+
+    gl_FragColor.rgb = vec3( v );
+    gl_FragColor.a = 1.;
+}
+
+ENDGLSL

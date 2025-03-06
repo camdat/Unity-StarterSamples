@@ -1,0 +1,84 @@
+#pragma kernel main
+
+GLSLPROGRAM
+#version 130
+
+layout (local_size_x = 64, local_size_y = 1) in;
+layout (std430, binding = 0) buffer _LayoutName {readonly float a[];};
+
+layout (std140, binding = 2) buffer _HResult {writeonly restrict uint HOut[];};
+layout (std140, binding = 3) buffer _WSumResult {writeonly restrict uint WSumTotal[];};
+
+uniform sampler2DRect tone_img;
+uniform sampler2DRect weight_img;
+
+uniform bool do_weighted;
+uniform bool ignore_zeros;
+
+shared uint H[32];  // Local histogram
+shared uint W_sum[gl_WorkGroupSize.x]; // Store per-thread weights
+
+void main() {
+	const float vmin = -13;
+	const float vmax = 0;
+	const uint bin_count = 32;
+	const uint tile_sz = 64;
+	const uint ds_tile_sz = 32;
+	const float w_max = 1.; // The maximum weight we may have
+	const float w_scale = 256./w_max; // Use 8-bit precision for weights
+
+	if( gl_LocalInvocationID.x<bin_count ) {
+		H[gl_LocalInvocationID.x] = 0;
+	}
+	W_sum[gl_LocalInvocationID.x] = 0;
+
+	barrier();  // This is needed for correct results
+
+	ivec2 im_sz = textureSize(tone_img,0);
+	vec2 weight_sz = textureSize(weight_img,0);
+	ivec2 tex_pos = ivec2( gl_GlobalInvocationID.x, gl_WorkGroupID.y*tile_sz );
+
+	if( tex_pos.x < im_sz.x ) {
+		for( int y = tex_pos.y; y<min(tex_pos.y+tile_sz,im_sz.y); y++ ) {
+			vec2 tex_cord = vec2(float(tex_pos.x)+0.5,float(y)+0.5); // 2DRect coords use 0.5 for the center of the texel
+			float v = texture2DRect(tone_img, tex_cord).x;
+
+			if( ignore_zeros && v <= -12.9 )
+				continue;
+
+			// Weights (std) are stored in the y-channel
+			float w;
+			if( do_weighted ) {
+				vec2 w_tex_cord = tex_pos * weight_sz/vec2(im_sz)-0.5;
+				w = texture2DRect(weight_img, w_tex_cord ).y;
+			} else {
+				w = 1.;
+			}
+			uint bin = uint(clamp( (v - vmin)*32./(vmax-vmin), 0., 31. ));
+			uint w_int = int(w_scale*w);
+			atomicAdd(H[bin],w_int);
+			W_sum[gl_LocalInvocationID.x] += w_int;
+		}
+	}
+
+	uint wg_index = gl_WorkGroupID.x + gl_WorkGroupID.y*gl_NumWorkGroups.x;
+	uint mem_index = wg_index*bin_count;
+	barrier();  // This is needed for correct results
+
+	// This is rather inefficient, but we do not worry about it right now
+	if( gl_LocalInvocationID.x==0 ) {
+		uint W_sum_all = 0;
+		for( int kk=0; kk<gl_WorkGroupSize.x; kk++ ) {
+			W_sum_all += W_sum[kk];
+		}
+		WSumTotal[wg_index] = W_sum_all;
+	}
+
+	barrier();  // This is needed for correct results
+
+	if( gl_LocalInvocationID.x<bin_count ) {
+		HOut[mem_index+gl_LocalInvocationID.x] = H[gl_LocalInvocationID.x];
+	}
+
+}
+ENDGLSL

@@ -81,7 +81,7 @@ Material:
     - _Glossiness: 0.5
     - _GlossyReflections: 1
     - _IgnoreZeros: 0
-    - _InDr: 0.1
+    - _InDr: 0.2
     - _Metallic: 0
     - _Mode: 0
     - _OcclusionStrength: 1

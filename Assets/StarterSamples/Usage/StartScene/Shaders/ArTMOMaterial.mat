@@ -77,7 +77,7 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _BeamsplitterComp: 0.2
+    - _BeamsplitterComp: 1
     - _BumpScale: 1
     - _Cutoff: 0.5
     - _DetailNormalMapScale: 1
@@ -85,7 +85,7 @@ Material:
     - _GlossMapScale: 1
     - _Glossiness: 0.5
     - _GlossyReflections: 1
-    - _InDr: 2
+    - _InDr: 13
     - _Metallic: 0
     - _Mode: 0
     - _OcclusionStrength: 1
@@ -95,7 +95,7 @@ Material:
     - _SrcBlend: 1
     - _UVSec: 0
     - _YComp: 0
-    - _YDispPeak: 1000
+    - _YDispPeak: 1.26
     - _ZWrite: 1
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}

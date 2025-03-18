@@ -99,7 +99,7 @@ Shader "Unlit/ArTmo"
 
             float tone_in = texture(_ToneImg, texCoord1.st).x;
             float tone_norm = correct_tex_coord(tone_in/_InDr + 1.);
-            vec3 tcs = textureLod(_TcsLut, vec2(tone_norm, 0.0), 0.).xyz; // (t)one, colour (c)orrection and (s)harpenning
+            vec3 tcs = textureLod(_TcsLut, vec2(0.0, 0.0), 0.).rgb; // (t)one, colour (c)orrection and (s)harpenning
             float tone_out = tcs.x;
 
             float de = tcs.z; // detail enhancement factor
@@ -117,9 +117,16 @@ Shader "Unlit/ArTmo"
             // RGB_out is between 0 and 1, linear relative colour space
             vec3 rgb_out = (rgb_in-tone_in)*s+tone_out;
 
-            vec3 RGB_out = min( (pow(vec3(2.), rgb_out) - min_y)/(1.-min_y), vec3(1.)) * mat3x3(_M_native2display);
+            vec3 RGB_out = min( (pow(vec3(2.), rgb_out) - min_y)/(1.-min_y), vec3(1.))*  mat3(_M_native2display);
+
+
+            //mat3x3(vec3(0.753879233459602, 0.198671336179777, 0.0475975224268294),
+            // vec3(0.0457648757737765, 0.941678347036237, 0.0125075575950154),
+            // vec3(-0.00121109595995890, 0.0175939449477859, 0.983523842649768));
 
             gl_FragColor.rgb = max( RGB_out*(_YDispPeak+_YComp) - _YComp, vec3(0.005) ) * _BeamsplitterComp;
+            // gl_FragColor.rgb = max( RGB_out, vec3(0.005) ) * _BeamsplitterComp;
+            // gl_FragColor.rgb /= vec3(_YDispPeak);
             gl_FragColor.a = 1.;
         }
 

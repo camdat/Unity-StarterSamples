@@ -9,12 +9,24 @@ public class ToneImageScript : MonoBehaviour
 {
 
 
-    public int TextureLength =1024;
+    public int TextureLength = 1024;
 
     public Texture2D texture;
 
     public float initialTone = 0;
     public bool inverse = false;
+
+    public ComputeShader computeShader;
+    public ComputeBuffer HcomputeBuffer;
+    public ComputeBuffer WcomputeBuffer;
+
+    public bool computeDispatched = false;
+
+    public double[] slope_l = new double[33] {
+            -13.0000f, -12.5938f, -12.1875f, -11.7812f, -11.3750f, -10.9688f, -10.5625f, -10.1562f, -9.7500f, -9.3438f, -8.9375f,
+            -8.5312f, -8.1250f, -7.7188f, -7.3125f, -6.9062f, -6.5000f, -6.0938f, -5.6875f, -5.2812f, -4.8750f, -4.4688f,
+            -4.0625f, -3.6562f, -3.2500f, -2.8438f, -2.4375f, -2.0312f, -1.6250f, -1.2188f, -0.8125f, -0.4062f, 0.0000f
+    };
 
 
     public static double[] GetTcClahe(double[] l_in, double[] H, double dest_dr)
@@ -76,7 +88,7 @@ public class ToneImageScript : MonoBehaviour
     }
     public static double[] ComputeToneCurve(double Y_display_peak, double[] l_in, double[] H, double Y_amb, double Y_comp)
     {
-        double dest_dr = log2((Y_display_peak + Y_amb) / Y_comp);
+        double dest_dr = log2((Y_display_peak + Y_comp) / Y_comp); //TODO Updated against matlab (Y_amb became Y_comp)
         return GetTcClahe(l_in, H, dest_dr);
     }
 
@@ -103,7 +115,7 @@ public class ToneImageScript : MonoBehaviour
         double k2 = 0.9925;
         double[] g = l_in;
         double[] c = Interpolate(slope_l, slope, Clamp(g, slope_l.First(), slope_l.Last()));
-        double[] cc_lut = c.Select(ci => max((1 + k1) * pow(ci, k2) / (1 + k1 * pow(ci, k2)), 0.4)).ToArray();
+        double[] cc_lut = c.Select(ci => max((1 + k1) * pow(ci, k2) / (1 + k1 * pow(ci, k2)), 0.4)).ToArray(); // updated in matlab
         return cc_lut;
     }
     private static double[] Convolve(double[] input, double[] kernel)
@@ -239,30 +251,40 @@ public class ToneImageScript : MonoBehaviour
         */
 
 
-        double[] slope_l = new double[33] {
-            -13.0000f, -12.5938f, -12.1875f, -11.7812f, -11.3750f, -10.9688f, -10.5625f, -10.1562f, -9.7500f, -9.3438f, -8.9375f,
-            -8.5312f, -8.1250f, -7.7188f, -7.3125f, -6.9062f, -6.5000f, -6.0938f, -5.6875f, -5.2812f, -4.8750f, -4.4688f,
-            -4.0625f, -3.6562f, -3.2500f, -2.8438f, -2.4375f, -2.0312f, -1.6250f, -1.2188f, -0.8125f, -0.4062f, 0.0000f
-        };
 
-        double[] tone_curve = ComputeToneCurve(100, slope_l, new double[] { 1/32, 1/32, 1/32, 1/32, 1/32, 1/32, 1/32, 1/32, 1/32, 1/32, 1/32, 1/32, 1/32, 1/32, 1/32, 1/32, 1/32, 1/32, 1/32, 1/32, 1/32, 1/32, 1/32, 1/32, 1/32, 1/32, 1/32, 1/32, 1/32, 1/32, 1/32, 1/32 }, 50, 12.5);
+
+        double[] tone_curve = new double[33] {
+            -3.5849626f, -3.4729323f, -3.3609023f, -3.2488723f, -3.1368423f, -3.0248122f, -2.912782f, -2.8007519f, -2.6887219f, -2.5766919f, -2.4646618f, -2.3526316f,
+            -2.2406015f, -2.1285715f, -2.0165415f, -1.9045113f, -1.7924813f, -1.6804512f, -1.5684211f, -1.456391f, -1.3443609f, -1.2323309f, -1.1203008f, -1.0082707f,
+            -0.89624065f, -0.78421056f, -0.67218047f, -0.56015038f, -0.44812033f, -0.33609024f, -0.22406016f, -0.11203008f, 0f};
+
+
 
         // print tone_curve
-        for (int i = 0; i < tone_curve.Length; i++) {
+        for (int i = 0; i < tone_curve.Length; i++)
+        {
             Debug.Log("tone_curve[" + i + "] = " + tone_curve[i]);
         }
 
-        double[] cc_lut = GetColorCorrectionLut(slope_l, tone_curve);
+        // cc lut: 0.40000001	0.40000001	0.47264779	0.50816202	0.50816202	0.50816202	0.50816202	0.50816202	0.50816202	0.50816202	0.50816202	0.50816202	0.50816202	0.50816202	0.50816202	0.50816202	0.50816202	0.50816202	0.50816202	0.50816202	0.50816202	0.50816202	0.50816202	0.50816202	0.50816202	0.50816202	0.50816202	0.50816202	0.50816202	0.50816202	0.47264779	0.40000001	0.40000001
+        double[] cc_lut = new double[33] {
+            0.40000001f, 0.40000001f, 0.47264779f, 0.50816202f, 0.50816202f, 0.50816202f, 0.50816202f, 0.50816202f, 0.50816202f, 0.50816202f, 0.50816202f, 0.50816202f,
+            0.50816202f, 0.50816202f, 0.50816202f, 0.50816202f, 0.50816202f, 0.50816202f, 0.50816202f, 0.50816202f, 0.50816202f, 0.50816202f, 0.50816202f, 0.50816202f,
+            0.50816202f, 0.50816202f, 0.50816202f, 0.50816202f, 0.50816202f, 0.50816202f, 0.47264779f, 0.40000001f, 0.40000001f};
+
+        // GetColorCorrectionLut(slope_l, tone_curve);
 
         // print cc_lut
-        for (int i = 0; i < cc_lut.Length; i++) {
+        for (int i = 0; i < cc_lut.Length; i++)
+        {
             Debug.Log("cc_lut[" + i + "] = " + cc_lut[i]);
         }
 
         double[] de_out_lut = GetUnsharpMaskLut(slope_l, 100, tone_curve, 50);
 
         // print de_out_lut
-        for (int i = 0; i < de_out_lut.Length; i++) {
+        for (int i = 0; i < de_out_lut.Length; i++)
+        {
             Debug.Log("de_out_lut[" + i + "] = " + de_out_lut[i]);
         }
 
@@ -277,11 +299,21 @@ public class ToneImageScript : MonoBehaviour
         Renderer rend = GetComponent<Renderer>();
 
         // create a Texture2D that is the length of tonecurve, cc_lut, and de_out_lut, then set values in the R channel
-        Texture2D texture1d = new Texture2D(tone_curve.Length + cc_lut.Length + de_out_lut.Length, 1, TextureFormat.RFloat, false);
-        for (int i = 0; i < texData.Length; i++) {
-            texture1d.SetPixel(i, 0, new Color((float)texData[i], 0,
-            0, 1));
+        Texture2D texture1d = new Texture2D(1, 1, TextureFormat.RGBAFloat, false, true); // TextureFormat.RGBAFloat, false);
+
+        // set the value of texture1d to 1.0
+        // texture1d.SetPixels(new Color[] { new Color(-3.5f, 1.3f, 1.0f, 1.0f) });
+
+        // texture1d.SetPixel(0, 0, new Color(1.0f, 1.0f, 1.0f, 1.0f));
+
+
+
+        for (int i = 0; i < tone_curve.Length; i++)
+        {
+            texture1d.SetPixel(i, 0, new Color((float)tone_curve[i], (float)cc_lut[i], (float)de_out_lut[i], 1.0f));
         }
+        texture1d.Apply();
+
 
 
         rend.material.SetTexture("_TcsLut", texture1d);
@@ -292,23 +324,26 @@ public class ToneImageScript : MonoBehaviour
                         0.262698339, 0.678008766, 0.0592928953;
                         4.99407097e-17, 0.0280731358, 1.06082723]
         */
-        Matrix4x4 M_rgb2xyz = new Matrix4x4( new Vector4(0.636953507f, 0.262698339f, 4.99407097e-17f, 0f),
-                                                 new Vector4(0.144619185f, 0.678008766f, 0.0280731358f, 0f),
-                                                 new Vector4(0.168855854f, 0.0592928953f, 1.06082723f, 0f),
-                                                 new Vector4(0f, 0f, 0f, 0f));
+        Matrix4x4 M_rgb2xyz = new Matrix4x4(new Vector4(0.636953507f, 0.114619185f, 0.168855854f, 0f),
+                                                 new Vector4(0.262698339f, 0.678008766f, 0.0592928953f, 0f),
+                                                 new Vector4(4.99407097e-17f, 0.0280731358f, 1.06082723f, 0f),
+                                                 new Vector4(0f, 0f, 0f, 1f));
 
         // set the value of M_p3toxyz
         /* M_p3_to_xyz = [0.4866,0.2657,0.1982;
                 0.2290,0.6917,0.0793;
                 0,0.0451,1.0437];
         */
-        Matrix4x4 M_p3toxyz = new Matrix4x4( new Vector4(0.4866f, 0.2290f, 0f, 0f),
-                                                 new Vector4(0.2657f, 0.6917f, 0f, 0f),
-                                                 new Vector4(0.1982f, 0.0793f, 1.0437f, 0f),
-                                                 new Vector4(0f, 0f, 0f, 0f));
+        Matrix4x4 M_p3toxyz_inverse = new Matrix4x4(new Vector4(2.493474f, -0.93154968f, -0.402735296f, 0f),
+                                            new Vector4(-0.829620637954292f, 1.76285328571423f, 0.0236050061180438f, 0f),
+                                            new Vector4(0.0358492773514789f, -0.0761758006953260f, 0.957109719482683f, 0f),
+                                            new Vector4(0f, 0f, 0f, 1f));
 
         // inverse p3toxyz to get M_xyz2native
-        Matrix4x4 M_xyz2native = M_p3toxyz.inverse;
+        Matrix4x4 M_xyz2native = M_p3toxyz_inverse;
+
+        Debug.Log("M_native2xyz!![0] = " + M_xyz2native[0, 0] + ", " + M_xyz2native[0, 1] + ", " + M_xyz2native[0, 2]);
+
 
 
         // set the value of M_xyz2display
@@ -317,10 +352,10 @@ public class ToneImageScript : MonoBehaviour
                 4.99407097e-17, 0.0280731358, 1.06082723]
                 */
 
-        Matrix4x4 M_xyz2display = new Matrix4x4( new Vector4(0.636953507f, 0.262698339f, 4.99407097e-17f, 0f),
-                                                 new Vector4(0.144619185f, 0.678008766f, 0.0280731358f, 0f),
-                                                 new Vector4(0.168855854f, 0.0592928953f, 1.06082723f, 0f),
-                                                 new Vector4(0f, 0f, 0f, 0f)).inverse;
+        Matrix4x4 M_xyz2display = new Matrix4x4(new Vector4(0.636953507f, 0.144619185f, 0.168855854f, 0f),
+                                                 new Vector4(0.262698339f, 0.678008766f, 0.0592928953f, 0f),
+                                                 new Vector4(4.99407097e-17f, 0.0280731358f, 1.06082723f, 0f),
+                                                 new Vector4(0f, 0f, 0f, 1f)).inverse;
 
         // set the value of M_native2xyz
         /*    M_native2xyz = [0.4866,0.2657,0.1982;
@@ -328,15 +363,26 @@ public class ToneImageScript : MonoBehaviour
                 0,0.0451,1.0437];
                 */
 
-        Matrix4x4 M_native2xyz = new Matrix4x4( new Vector4(0.4866f, 0.2290f, 0f, 0f),
-                                                 new Vector4(0.2657f, 0.6917f, 0.0451f, 0f),
-                                                 new Vector4(0.1982f, 0.0793f, 1.0437f, 0f),
-                                                 new Vector4(0f, 0f, 0f, 0f));
+        Matrix4x4 M_native2xyz = new Matrix4x4(new Vector4(0.4866f, 0.2657f, 0.1982f, 0f),
+                                                 new Vector4(0.2290f, 0.6917f, 0.0793f, 0f),
+                                                 new Vector4(0f, 0.0451f, 1.0437f, 0f),
+                                                 new Vector4(0f, 0f, 0f, 1f));
+
+        // print the first row of M_native2xyz
+
+
+        // set the value of M_native2display
+        /* 0.753879233459602	0.198671336179777	0.0475975224268294
+0.0457648757737765	0.941678347036237	0.0125075575950154
+-0.00121109595995890	0.0175939449477859	0.983523842649768
+        */
+
 
         Matrix4x4 M_native2display = M_xyz2display * M_native2xyz;
 
+        Debug.Log("M_native2xyz[0] = " + M_native2display[0, 0] + ", " + M_native2display[0, 1] + ", " + M_native2display[0, 2]);
 
-        rend.material.SetMatrix("_M_cont2native", M_xyz2native*M_rgb2xyz);
+        rend.material.SetMatrix("_M_cont2native", M_xyz2native * M_rgb2xyz);
 
 
         RenderTexture buffer = new RenderTexture(
@@ -346,7 +392,7 @@ public class ToneImageScript : MonoBehaviour
                                RenderTextureFormat.ARGB32   // Standard colour format
         );
 
-        texture = new Texture2D(TextureLength,TextureLength,TextureFormat.ARGB32,true);
+        texture = new Texture2D(TextureLength, TextureLength, TextureFormat.ARGB32, true);
 
         MeshRenderer render = GetComponent<MeshRenderer>();
         Material material = render.sharedMaterial;
@@ -369,7 +415,7 @@ public class ToneImageScript : MonoBehaviour
 
         // now we do the same thing to QuadTone
 
-        Texture2D texture_downsample = new Texture2D(TextureLength,TextureLength,TextureFormat.ARGB32,true);
+        Texture2D texture_downsample = new Texture2D(TextureLength, TextureLength, TextureFormat.ARGB32, true);
         MeshRenderer render_downsample = GameObject.Find("QuadTone").GetComponent<MeshRenderer>();
         Material material_downsample = render_downsample.sharedMaterial;
         Graphics.Blit(null, buffer, material_downsample);
@@ -386,7 +432,7 @@ public class ToneImageScript : MonoBehaviour
         renderer_upsample.material.SetTexture("_Image", texture);
 
         // lastly take edgestop and the others, and send them to ArTMO
-        Texture2D texture_upsample = new Texture2D(TextureLength,TextureLength,TextureFormat.ARGB32,true);
+        Texture2D texture_upsample = new Texture2D(TextureLength, TextureLength, TextureFormat.ARGB32, true);
         MeshRenderer render_upsample = GameObject.Find("QuadUpsample").GetComponent<MeshRenderer>();
         Material material_upsample = render_downsample.sharedMaterial;
         Graphics.Blit(null, buffer, material_upsample);
@@ -401,6 +447,8 @@ public class ToneImageScript : MonoBehaviour
         Renderer renderer_artmo = GameObject.Find("QuadArTMO").GetComponent<Renderer>();
         renderer_artmo.material.SetTexture("_ToneImg", texture);
         renderer_artmo.material.SetTexture("_ToneImgLp", texture_upsample);
+        renderer_artmo.material.SetTexture("_TcsLut", texture1d);
+
 
         renderer_artmo.material.SetMatrix("_M_native2display", M_native2display);
 
@@ -412,17 +460,44 @@ public class ToneImageScript : MonoBehaviour
         0, 0, 1];
         */
 
-        Matrix4x4 M_rec709_rgbdisp = new Matrix4x4( new Vector4(1f, 0f, 0f, 0f),
+        int kernelHandle = computeShader.FindKernel("main");
+
+
+        Matrix4x4 M_rec709_rgbdisp = new Matrix4x4(new Vector4(1f, 0f, 0f, 0f),
                                                  new Vector4(0f, 1f, 0f, 0f),
                                                  new Vector4(0f, 0f, 1f, 0f),
                                                  new Vector4(0f, 0f, 0f, 0f));
 
 
         Renderer renderer_crrgb = GameObject.Find("QuadCrRGB").GetComponent<Renderer>();
-        renderer_artmo.material.SetTexture("_ToneImg", texture); // ?, or texture from arTMO?
-        renderer_artmo.material.SetMatrix("_M_rec709_rgbdisp", M_rec709_rgbdisp);
+        renderer_crrgb.material.SetTexture("_ToneImg", texture); // ?, or texture from arTMO?
 
 
+        int tone_img_id = Shader.PropertyToID("tone_img");
+        int weight_img_id = Shader.PropertyToID("weight_img");
+        int h_result_id = Shader.PropertyToID("_HResult");
+        int layout_name_id = Shader.PropertyToID("_LayoutName");
+        int w_sum_result_id = Shader.PropertyToID("_WSumResult");
+
+        int H_sz = 12512; // TODO: arbitrary workgroup size, could be derived from the texture size?
+        int W_sz = 391; // TODO: arbitrary workgroup size, could be derived from the texture size?
+
+        // launch compute shader
+        computeShader.SetTexture(kernelHandle, tone_img_id, texture);
+        computeShader.SetTexture(kernelHandle, weight_img_id, texture_downsample);
+
+        HcomputeBuffer = new ComputeBuffer(H_sz * 4, 4);
+        computeShader.SetBuffer(kernelHandle, h_result_id, HcomputeBuffer);
+
+        ComputeBuffer layoutBuf = new ComputeBuffer(1, 4);
+        computeShader.SetBuffer(kernelHandle, layout_name_id, layoutBuf); // this isn't used, but bind a small buffer to it anyways
+
+        WcomputeBuffer = new ComputeBuffer(W_sz * 4, 4);
+        computeShader.SetBuffer(kernelHandle, w_sum_result_id, WcomputeBuffer);
+
+        computeShader.Dispatch(kernelHandle, 23, 17, 1);
+
+        computeDispatched = true;
 
         // log success
         Debug.Log("Texture saved to ");
@@ -433,18 +508,172 @@ public class ToneImageScript : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-      // add 1 to initialTone. If initialTone is greater than 1000, set inverse to true and subtract 1
-      if (!inverse) {
-        initialTone += 1;
-      } else {
-        initialTone -= 1;
-      }
-      if (initialTone >= 400 || initialTone <= 0) {
-        inverse = !inverse;
-      }
+        // TODO: grab the new Y_display_peak
 
-      Renderer renderer_artmo = GameObject.Find("QuadArTMO").GetComponent<Renderer>();
-      renderer_artmo.material.SetFloat("_YDispPeak", initialTone);
+
+        // print the values of computebuffer
+        if (computeDispatched) {
+            uint[] HResult = new uint[12512]; // 32 * 391
+            HcomputeBuffer.GetData(HResult);
+
+            uint[] WResult = new uint[391];
+            WcomputeBuffer.GetData(WResult);
+
+            double[] H = new double[32];
+
+            float W_sum = 0.0001f;
+            for (int i = 0; i < 391; i++) {
+                W_sum += WResult[i];
+            }
+
+
+            // take the sum of every 391 elements and store them in H
+            for (int i = 0; i < 32; i++) {
+                H[i] = 0;
+                for (int j = 0; j < 391; j++) {
+                    H[i] += HResult[i * 391 + j];
+                }
+
+                // now divide the sum by the sum of WResult
+                H[i] /= W_sum;
+            }
+
+
+            // for the first 28 elements, take the square root
+            for (int i = 0; i < 28; i++) {
+                H[i] = sqrt(H[i]);
+            }
+            H = H.Select(x => sqrt(x)).ToArray();
+
+            // change the last 4 elements to the 4th root
+            H[31] = pow(H[31], 1.0 / 4.0);
+            H[30] = pow(H[30], 1.0 / 4.0);
+            H[29] = pow(H[29], 1.0 / 4.0);
+            H[28] = pow(H[28], 1.0 / 4.0);
+
+            H = H.Select(x => x / (H.Sum() + 1e-4)).ToArray();
+
+
+            double[] tone_curve = ComputeToneCurve(100, slope_l, H, 50, 12.5);
+
+            double[] cc_lut = GetColorCorrectionLut(slope_l, tone_curve);
+
+            double[] de_out_lut = GetUnsharpMaskLut(slope_l, 100, tone_curve, 50);
+
+            Renderer rend = GetComponent<Renderer>();
+
+            // create a Texture2D that is the length of tonecurve, cc_lut, and de_out_lut, then set values in the R channel
+            Texture2D texture1d = new Texture2D(1, 1, TextureFormat.RGBAFloat, false, true);
+
+            for (int i = 0; i < tone_curve.Length; i++)
+            {
+                texture1d.SetPixel(i, 0, new Color((float)tone_curve[i], (float)cc_lut[i], (float)de_out_lut[i], 1.0f));
+            }
+            texture1d.Apply();
+
+            rend.material.SetTexture("_TcsLut", texture1d);
+
+            // now go through and update all of the downstream shaders
+            RenderTexture buffer = new RenderTexture(
+                TextureLength,
+                TextureLength,
+                0,                            // No depth/stencil buffer
+                RenderTextureFormat.ARGB32   // Standard colour format
+            );
+
+            Texture2D tcs_texture = new Texture2D(TextureLength, TextureLength, TextureFormat.ARGB32, true);
+
+            MeshRenderer render = GetComponent<MeshRenderer>();
+            Material material = render.sharedMaterial;
+
+            Graphics.Blit(null, buffer, material);
+            RenderTexture.active = buffer;           // If not using a scene camera
+
+            tcs_texture.ReadPixels(
+            new Rect(0, 0, TextureLength, TextureLength), // Capture the whole texture
+            0, 0,                          // Write starting at the top-left texel
+            false);                          // No mipmaps
+
+            tcs_texture.Apply();
+
+
+        // load the Tone Image into the ArTMO and Tone Extraction
+            Renderer renderer = GameObject.Find("QuadTone").GetComponent<Renderer>();
+
+            renderer.material.SetTexture("_ToneImg", tcs_texture);
+
+        // now we do the same thing to QuadTone
+
+            Texture2D texture_downsample = new Texture2D(TextureLength, TextureLength, TextureFormat.ARGB32, true);
+            MeshRenderer render_downsample = GameObject.Find("QuadTone").GetComponent<MeshRenderer>();
+            Material material_downsample = render_downsample.sharedMaterial;
+            Graphics.Blit(null, buffer, material_downsample);
+            RenderTexture.active = buffer;           // If not using a scene camera
+            texture_downsample.ReadPixels(
+            new Rect(0, 0, TextureLength, TextureLength), // Capture the whole texture
+            0, 0,                          // Write starting at the top-left texel
+            false);                          // No mipmaps
+            texture_downsample.Apply();
+
+        // now send them to upsampleedgestop
+            Renderer renderer_upsample = GameObject.Find("QuadUpsample").GetComponent<Renderer>();
+            renderer_upsample.material.SetTexture("_ToneImgDs", texture_downsample);
+            renderer_upsample.material.SetTexture("_Image", tcs_texture);
+
+        // lastly take edgestop and the others, and send them to ArTMO
+            Texture2D texture_upsample = new Texture2D(TextureLength, TextureLength, TextureFormat.ARGB32, true);
+            MeshRenderer render_upsample = GameObject.Find("QuadUpsample").GetComponent<MeshRenderer>();
+            Material material_upsample = render_downsample.sharedMaterial;
+            Graphics.Blit(null, buffer, material_upsample);
+            RenderTexture.active = buffer;           // If not using a scene camera
+            texture_upsample.ReadPixels(
+            new Rect(0, 0, TextureLength, TextureLength), // Capture the whole texture
+            0, 0,                          // Write starting at the top-left texel
+            false);                          // No mipmaps
+            texture_upsample.Apply();
+
+
+            Renderer renderer_artmo = GameObject.Find("QuadArTMO").GetComponent<Renderer>();
+            renderer_artmo.material.SetTexture("_ToneImg", tcs_texture);
+            renderer_artmo.material.SetTexture("_ToneImgLp", texture_upsample);
+            renderer_artmo.material.SetTexture("_TcsLut", texture1d);
+
+            Renderer renderer_crrgb = GameObject.Find("QuadCrRGB").GetComponent<Renderer>();
+            renderer_crrgb.material.SetTexture("_ToneImg", texture); // ?, or texture from arTMO?
+
+            int kernelHandle = computeShader.FindKernel("main");
+
+
+            int tone_img_id = Shader.PropertyToID("tone_img");
+            int weight_img_id = Shader.PropertyToID("weight_img");
+            int h_result_id = Shader.PropertyToID("_HResult");
+            int layout_name_id = Shader.PropertyToID("_LayoutName");
+            int w_sum_result_id = Shader.PropertyToID("_WSumResult");
+
+            int H_sz = 12512; // TODO: arbitrary workgroup size, could be derived from the texture size?
+            int W_sz = 391; // TODO: arbitrary workgroup size, could be derived from the texture size?
+
+            // launch compute shader
+            computeShader.SetTexture(kernelHandle, tone_img_id, texture);
+            computeShader.SetTexture(kernelHandle, weight_img_id, texture_downsample);
+
+            HcomputeBuffer = new ComputeBuffer(H_sz * 4, 4);
+            computeShader.SetBuffer(kernelHandle, h_result_id, HcomputeBuffer);
+
+            ComputeBuffer layoutBuf = new ComputeBuffer(1, 4);
+            computeShader.SetBuffer(kernelHandle, layout_name_id, layoutBuf); // this isn't used, but bind a small buffer to it anyways
+
+            WcomputeBuffer = new ComputeBuffer(W_sz * 4, 4);
+            computeShader.SetBuffer(kernelHandle, w_sum_result_id, WcomputeBuffer);
+
+            computeShader.Dispatch(kernelHandle, 23, 17, 1);
+
+
+
+
+
+
+        }
 
 
     }

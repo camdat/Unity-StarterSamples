@@ -348,6 +348,42 @@ MonoBehaviour:
   texture: {fileID: 0}
   initialTone: 0
   inverse: 0
+  computeShader: {fileID: 7200000, guid: ca245f8bdc9a35b41aa7af6e13d15660, type: 3}
+  computeDispatched: 0
+  slope_l:
+  - -13
+  - -12.593799591064453
+  - -12.1875
+  - -11.781200408935547
+  - -11.375
+  - -10.968799591064453
+  - -10.5625
+  - -10.156200408935547
+  - -9.75
+  - -9.343799591064453
+  - -8.9375
+  - -8.531200408935547
+  - -8.125
+  - -7.718800067901611
+  - -7.3125
+  - -6.906199932098389
+  - -6.5
+  - -6.093800067901611
+  - -5.6875
+  - -5.281199932098389
+  - -4.875
+  - -4.468800067901611
+  - -4.0625
+  - -3.6561999320983887
+  - -3.25
+  - -2.8438000679016113
+  - -2.4375
+  - -2.0311999320983887
+  - -1.625
+  - -1.2187999486923218
+  - -0.8125
+  - -0.40619999170303345
+  - 0
 --- !u!64 &170843949
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -822,7 +858,6 @@ GameObject:
   - component: {fileID: 689409150}
   - component: {fileID: 689409149}
   - component: {fileID: 689409148}
-  - component: {fileID: 689409147}
   m_Layer: 0
   m_Name: QuadCrRGB
   m_TagString: Untagged
@@ -830,22 +865,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &689409147
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 689409146}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5bb49c35f4859dd4a9e9e1508a177326, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  TextureLength: 1024
-  texture: {fileID: 0}
-  initialTone: 0
-  inverse: 0
 --- !u!64 &689409148
 MeshCollider:
   m_ObjectHideFlags: 0

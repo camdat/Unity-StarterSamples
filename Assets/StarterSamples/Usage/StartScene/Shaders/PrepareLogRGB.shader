@@ -133,7 +133,7 @@ Shader "Unlit/PrepareLogRGB"
             float tone =  max( max( rgb_log.r, rgb_log.g ), rgb_log.b );
 
             float tone_norm = correct_tex_coord(tone/_InDr + 1.); // To get values 0-1
-            float tone_out = -5.1; //textureLod(_TcsLut, vec2(tone_norm, 0.), 0.).x;  // .x is the tone curve LUT
+            float tone_out = textureLod(_TcsLut, vec2(tone_norm, 0.), 0.).r;  // .x is the tone curve LUT
 
             gl_FragColor.rgb = vec3(tone, tone*tone, tone_out);
             gl_FragColor.a = 1.;
